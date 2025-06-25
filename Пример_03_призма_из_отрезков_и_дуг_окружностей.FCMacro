@@ -1,4 +1,5 @@
 import FreeCAD
+from FreeCAD import Base
 import Part
 import math
 
