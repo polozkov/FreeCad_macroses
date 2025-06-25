@@ -1,0 +1,8 @@
+# Бывает, что такая проблема:
+# print("Hello, world! Не работает.")
+
+# Поставьте галочку:
+# Вид -> Панели -> Просмотр отчёта
+
+FreeCAD.Console.PrintMessage("Вывод на панель 'просмотр отчёта'.\nВторая строка.\n")
+FreeCAD.Console.PrintMessage("Hello, world!\n")

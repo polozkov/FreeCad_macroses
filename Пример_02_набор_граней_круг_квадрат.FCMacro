@@ -1,0 +1,26 @@
+import Part
+from FreeCAD import Vector
+
+# Создаем 3 грани (треугольник, квадрат, круг)
+wire1 = Part.makePolygon([Vector(0, 0, 0), Vector(5, 0, 0), Vector(2.5, 5, 0), Vector(0, 0, 0)])
+face1 = Part.Face(wire1)
+
+wire2 = Part.makePolygon([Vector(0, 0, 5), Vector(5, 0, 5), Vector(5, 5, 5), Vector(0, 5, 5), Vector(0, 0, 5)])
+face2 = Part.Face(wire2)
+
+circle = Part.makeCircle(3, Vector(2.5, 2.5, 10), Vector(0, 0, 1))
+wire3 = Part.Wire(circle)
+face3 = Part.Face(wire3)
+
+# Создаём оболочку
+# Оболочка (Shell) — это не твёрдое тело,
+# а просто набор соединённых граней
+shell = Part.makeShell([face1, face2, face3])
+
+doc = FreeCAD.ActiveDocument
+if not doc:
+    doc = FreeCAD.newDocument()
+# Добавляем объект в документ
+obj = doc.addObject("Part::Feature", "My_shell")
+obj.Shape = shell
+doc.recompute()

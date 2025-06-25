@@ -1,0 +1,43 @@
+import FreeCAD
+import Part
+import numpy as np
+from scipy.spatial import ConvexHull
+
+# Создай вектор мо массиву из трёх вещественных чисел (координат [x,y,z])
+f_3d_point = lambda arr: FreeCAD.Vector(arr[0], arr[1], arr[2])
+    
+# Создаёт выпуклую оболочку для заданного массива точек
+def create_convex_hull(points):
+    # Преобразуем точки в массив numpy
+    np_points = np.array(points)
+    # Вычисляем выпуклую оболочку
+    hull = ConvexHull(np_points)
+    
+    # Создаём список граней выпуклой оболочки
+    faces = []
+    for simplex in hull.simplices:
+        faces.append([simplex[0], simplex[1], simplex[2]])
+    
+    # Создаём форму выпуклой оболочки (параметр True замыкает грань в полигоне. Пройдись по всем граням.
+    shell = Part.makeShell([Part.Face(Part.makePolygon([f_3d_point(np_points[v]) for v in face], True)) for face in faces])
+    
+    # Преобразуем оболочку в твердое тело
+    solid = Part.Solid(shell)
+    return solid
+
+# Пример использования с точками
+points = [
+    [0, 0, 5],
+    [1, 1, 0],
+    [1, 2, 0],
+    [2, 1, 0],
+    [2, 2, 0]
+]
+
+doc = FreeCAD.ActiveDocument
+if not doc:
+    doc = FreeCAD.newDocument()
+# Добавляем объект в документ
+obj = doc.addObject("Part::Feature", "ConvexHull")
+obj.Shape = create_convex_hull(points)
+doc.recompute()
