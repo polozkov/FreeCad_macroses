@@ -1,0 +1,91 @@
+import FreeCAD
+import Part
+import math
+
+# преобразуй массив из трёх чисел (тройку чисел) в объект "ВЕКТОР"
+f_3d_point = lambda arr: FreeCAD.Vector(arr[0], arr[1], arr[2])
+# масштабирование тройки чисел пропорционально во все стороны (по трём осям)
+f_3d_scale = lambda arr,n: FreeCAD.Vector(arr[0]*n, arr[1]*n, arr[2]*n)
+
+# получи троку чисел из полярных координат, высота по умолчанию = 0
+f_xyz_polar = lambda r,deg,h=0: [r * math.cos(math.radians(deg)), r * math.sin(math.radians(deg)), h]
+# сдвиг тройки чисел во всех трёх направлениях
+f_xyz_delta = lambda arr, dx=0,dy=0,dz=0: [arr[0]+dx, arr[1]+dy, arr[2]+dz]
+  
+C0 = {
+   "HALF_H": 5,
+   "SIDE_OUT": 100,
+   "SIDE_INNER": 20,
+   "R_SHIFT_INNER" : 20,
+   "R_INFINITY": 120
+}
+
+doc = FreeCAD.ActiveDocument
+if not doc:
+    doc = FreeCAD.newDocument()
+  
+# кромка стороны (скруглённая кромка лишь с одной стороны ровной пластины)    
+def f_dict_side_of_detail():
+    # по ABC пойдёт дуга (дуга стоИт вертикально)
+    ABC = [[0, 0, +C0["HALF_H"]], [0, -C0["HALF_H"], 0], [0, 0, -C0["HALF_H"]]]
+    A,B,C = [f_xyz_delta(p, 0, -C0["R_SHIFT_INNER"], 0) for p in ABC]
+    # продолжения дуги (длина дополнительного отрезка "хвоста" известна заранее)
+    A_IN, C_IN = [f_xyz_delta(p, 0, C0["SIDE_INNER"], 0) for p in [A,C]]
+    
+    ARR = [[A_IN,A], [A,B,C], [C,C_IN], [C_IN,A_IN]]
+    # вытягивать кромку будем по оси "X"
+    EXTRUDE = [C0["SIDE_OUT"],0,0]
+    return ({"ARR": ARR, "EXTRUDE": EXTRUDE})
+
+# 
+def f_dict_pizza():
+    O = f_xyz_polar(0,0,0)
+    R = f_xyz_polar(C0["R_INFINITY"],-30)
+    L = f_xyz_polar(C0["R_INFINITY"],-30-120)
+    
+    ARR = [[O,R], [R,L], [L,O]]
+    # вытягивать кромку будем по оси "Z" - то есть вверх
+    EXTRUDE = [0,0,C0["HALF_H"]*2]
+    return ({"ARR": ARR, "EXTRUDE": EXTRUDE})
+    
+# делай парсинг массива: AB - в отрезки, ABC - в дуги
+def f_path_to_face(arr_AB_or_ABC):
+    # В путе либо 2 точки (отрезок AB), либо 3 точки (дуга ABC)
+    ARR_PATH = []
+    
+    for i_AB_or_ABC_only_numbers in arr_AB_or_ABC:
+        el = [f_3d_point(i_point) for i_point in i_AB_or_ABC_only_numbers]
+        # добавь отрезок по двум точкам
+        if (len(el) == 2):
+            # Звёздочка * распаковывает массив длины 2 
+            # Делай из массива две отдельные точки A,B
+            ARR_PATH.append(Part.LineSegment(*el))
+        # добавь дугу по трём точкам
+        elif (len(el) == 3):
+            ARR_PATH.append(Part.Arc(*el))
+          
+    # синтаксис спискового включения
+    # аналог list(map(lambda x: x**2, [0,1,2,3]
+    ARR_LINE_ARC = [Part.Edge(i_line_or_arc) for i_line_or_arc in ARR_PATH]
+    # верни ГРАНЬ с отрезками и дугами
+    return Part.Face(Part.Wire(ARR_LINE_ARC))
+
+def f_gen_shape(DICT_ARR_EXTRUDE):
+    V = DICT_ARR_EXTRUDE["EXTRUDE"]
+    FACE = f_path_to_face(DICT_ARR_EXTRUDE["ARR"])
+    return FACE.extrude(f_3d_point(V)).translate(f_3d_scale(V, -0.5))
+
+def f_add_shape(gotten_shape, gotten_name):
+    intersection_obj = doc.addObject("Part::Feature", gotten_name)
+    intersection_obj.Shape = gotten_shape
+    doc.recompute()
+
+def f_combo():
+    MY_side_of_detail = f_gen_shape(f_dict_side_of_detail())
+    MY_pizza = f_gen_shape(f_dict_pizza())
+    
+    # общая часть "скруглённой кромки" и "пиццы"
+    MY_common = MY_side_of_detail.common(MY_pizza)
+    f_add_shape(MY_common, "MY_common")
+
+f_combo()
